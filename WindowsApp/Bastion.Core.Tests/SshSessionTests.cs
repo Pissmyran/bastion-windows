@@ -182,6 +182,19 @@ public class SshSessionStandaloneTests
     }
 
     [Fact]
+    public void RunCommandCanReportRemoteFailure()
+    {
+        using var sshd = TestSshd.Start();
+        if (sshd is null) return;
+        var host = BuildHost(sshd);
+        var knownHosts = new KnownHosts(null);
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            SshSession.RunCommand(host, null, knownHosts, "echo failure >&2; exit 7", throwOnFailure: true));
+        Assert.Contains("exit status 7", error.Message);
+        Assert.Contains("failure", error.Message);
+    }
+
+    [Fact]
     public void KeepAliveDetectsASilentBlackholedConnectionWithoutFalsePositives()
     {
         using var sshd = TestSshd.Start();
