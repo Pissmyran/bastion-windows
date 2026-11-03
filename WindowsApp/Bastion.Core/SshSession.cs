@@ -51,11 +51,13 @@ public sealed class SshSession : IDisposable
 
     public static SshSession Connect(Host host, string? password, KnownHosts knownHosts, uint cols = 80, uint rows = 24)
     {
+        var hostName = host.HostName;
+        KnownHosts.ValidateHostName(hostName);
         using var agent = ConnectAgentIfNeeded(host);
         var auth = BuildAuthenticationMethod(host, password, agent);
-        var connectionInfo = new ConnectionInfo(host.HostName, (int)host.Port, host.User, auth);
+        var connectionInfo = new ConnectionInfo(hostName, (int)host.Port, host.User, auth);
         var client = new SshClient(connectionInfo);
-        client.HostKeyReceived += MakeHostKeyHandler(host, knownHosts, throwOnChange: true);
+        client.HostKeyReceived += MakeHostKeyHandler(connectionInfo.Host, connectionInfo.Port, knownHosts, throwOnChange: true);
 
         // `client` (och dess underliggande socket) läcker annars om
         // `Connect()`/`CreateShellStream()` kastar — inklusive det
@@ -287,16 +289,16 @@ public sealed class SshSession : IDisposable
     /// direkt (interaktiva sessioner) eller bara nekar tillit (engångskommandon/SFTP, där
     /// SSH.NET själv kastar ett anslutningsfel om <c>CanTrust</c> är false).
     /// </summary>
-    internal static EventHandler<HostKeyEventArgs> MakeHostKeyHandler(Host host, KnownHosts knownHosts, bool throwOnChange) =>
+    internal static EventHandler<HostKeyEventArgs> MakeHostKeyHandler(string hostName, int port, KnownHosts knownHosts, bool throwOnChange) =>
         (_, e) =>
         {
             var keyString = $"{e.HostKeyName} {Convert.ToBase64String(e.HostKey)}";
-            var result = knownHosts.Check(host.HostName, (int)host.Port, keyString);
+            var result = knownHosts.Check(hostName, port, keyString);
             e.CanTrust = result.Verdict != KnownHostVerdict.Changed;
             if (throwOnChange && result.Verdict == KnownHostVerdict.Changed)
             {
                 throw new SshHostKeyChangedException(
-                    $"VÄRDNYCKELN FÖR {host.HostName}:{host.Port} HAR ÄNDRATS — möjlig man-i-mitten-attack " +
+                    $"VÄRDNYCKELN FÖR {hostName}:{port} HAR ÄNDRATS — möjlig man-i-mitten-attack " +
                     $"eller en ombyggd server. Lagrad: \"{result.StoredKey}\" Ny: \"{keyString}\". Om ändringen " +
                     "är väntad, ta bort motsvarande rad i ~/.bastion/known_hosts manuellt.");
             }
@@ -305,11 +307,13 @@ public sealed class SshSession : IDisposable
     /// <summary>Kör ETT kommando över en fristående anslutning (motsvarar ssh::run_command).</summary>
     public static string RunCommand(Host host, string? password, KnownHosts knownHosts, string command)
     {
+        var hostName = host.HostName;
+        KnownHosts.ValidateHostName(hostName);
         using var agent = ConnectAgentIfNeeded(host);
         var auth = BuildAuthenticationMethod(host, password, agent);
-        var connectionInfo = new ConnectionInfo(host.HostName, (int)host.Port, host.User, auth);
+        var connectionInfo = new ConnectionInfo(hostName, (int)host.Port, host.User, auth);
         using var client = new SshClient(connectionInfo);
-        client.HostKeyReceived += MakeHostKeyHandler(host, knownHosts, throwOnChange: false);
+        client.HostKeyReceived += MakeHostKeyHandler(connectionInfo.Host, connectionInfo.Port, knownHosts, throwOnChange: false);
         client.Connect();
         using var cmd = client.CreateCommand(command);
         // Utan detta kan en hängande/ovanligt långsam fjärrprocess (samma
