@@ -182,7 +182,7 @@ public sealed partial class MainWindow : Window
             Visibility = _syncConfig.Encrypted ? Visibility.Visible : Visibility.Collapsed,
         };
         var syncButton = new Button { Content = "Synka nu", IsEnabled = _syncConfig.FolderPath is not null };
-        var statusLabel = new TextBlock { Opacity = 0.7 };
+        var statusLabel = new TextBlock { Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
 
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(pathLabel);
@@ -197,6 +197,7 @@ public sealed partial class MainWindow : Window
             _syncConfig.Encrypted = encryptedToggle.IsOn;
             _syncConfig.Save(SyncConfig.DefaultPath);
             passphraseBox.Visibility = encryptedToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+            statusLabel.Text = "";
         };
 
         var dialog = new ContentDialog
@@ -209,36 +210,40 @@ public sealed partial class MainWindow : Window
 
         chooseButton.Click += async (_, _) =>
         {
-            var picker = new FolderPicker { SuggestedStartLocation = PickerLocationId.Desktop };
-            picker.FileTypeFilter.Add("*");
-            InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+            syncButton.IsEnabled = false;
+            try
+            {
+                var picker = new FolderPicker { SuggestedStartLocation = PickerLocationId.Desktop };
+                picker.FileTypeFilter.Add("*");
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
 
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder is null) return;
+                var folder = await picker.PickSingleFolderAsync();
+                if (folder is null) return;
 
-            _syncConfig.FolderPath = folder.Path;
-            _syncConfig.Save(SyncConfig.DefaultPath);
-            pathLabel.Text = folder.Path;
-            syncButton.IsEnabled = true;
+                _syncConfig.FolderPath = folder.Path;
+                _syncConfig.Save(SyncConfig.DefaultPath);
+                pathLabel.Text = folder.Path;
+                statusLabel.Text = "";
+            }
+            finally
+            {
+                syncButton.IsEnabled = _syncConfig.FolderPath is not null;
+            }
         };
 
         syncButton.Click += async (_, _) =>
         {
             if (_syncConfig.FolderPath is null) return;
-            ISyncProvider provider;
-            if (_syncConfig.Encrypted)
+            var folderPath = _syncConfig.FolderPath;
+            var encrypted = _syncConfig.Encrypted;
+            var passphrase = passphraseBox.Password;
+            if (encrypted)
             {
-                if (string.IsNullOrEmpty(passphraseBox.Password))
+                if (string.IsNullOrEmpty(passphrase))
                 {
                     statusLabel.Text = "Ange en lösenfras först";
                     return;
                 }
-                provider = new EncryptedFolderSyncProvider(
-                    Path.Combine(_syncConfig.FolderPath, "hosts.enc"), passphraseBox.Password);
-            }
-            else
-            {
-                provider = new FolderSyncProvider(Path.Combine(_syncConfig.FolderPath, "hosts.json"));
             }
 
             // Filens I/O (kan vara en molnsynkad mapp — Dropbox/Drive/OneDrive
@@ -247,10 +252,25 @@ public sealed partial class MainWindow : Window
             // UI-tråden — samma fix som redan gjorts i LinuxApp/src/main.rs.
             statusLabel.Text = "Synkar…";
             syncButton.IsEnabled = false;
+            chooseButton.IsEnabled = false;
+            encryptedToggle.IsEnabled = false;
+            passphraseBox.IsEnabled = false;
             try
             {
-                await Task.Run(() => _store.Sync(provider));
+                await Task.Run(() =>
+                {
+                    if (encrypted) EncryptedFolderSync.Sync(_store, folderPath, passphrase);
+                    else _store.Sync(new FolderSyncProvider(Path.Combine(folderPath, "hosts.json")));
+                });
                 statusLabel.Text = "Synkad";
+                Refresh();
+            }
+            catch (PlaintextSyncSnapshotException)
+            {
+                statusLabel.Text = "Okrypterad hosts.json finns kvar i synkmappen. Stoppa okrypterad synk " +
+                    "på andra enheter och synka okrypterat här först. Flytta sedan filen ur synkmappen " +
+                    "och synka krypterat. Om mappen är Bastions lokala databas, välj en annan synkmapp. " +
+                    "Äldre kopior kan finnas i leverantörens historik och säkerhetskopior.";
                 Refresh();
             }
             catch (Exception ex)
@@ -260,6 +280,9 @@ public sealed partial class MainWindow : Window
             finally
             {
                 syncButton.IsEnabled = true;
+                chooseButton.IsEnabled = true;
+                encryptedToggle.IsEnabled = true;
+                passphraseBox.IsEnabled = true;
             }
         };
 

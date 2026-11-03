@@ -116,4 +116,85 @@ public class SyncCryptoTests
             Directory.Delete(dir, true);
         }
     }
+
+    [Fact]
+    public void EncryptedFolderSyncRequiresRetiringPlaintextAndPreservesBothSnapshots()
+    {
+        var dir = TempDir();
+        try
+        {
+            var folder = Path.Combine(dir, "shared");
+            var plainPath = Path.Combine(folder, "hosts.json");
+            var encryptedPath = Path.Combine(folder, "hosts.enc");
+            var plainHost = Host.Create("plain", "plain.example.com", "user");
+            var encryptedHost = Host.Create("encrypted", "encrypted.example.com", "user");
+            new FolderSyncProvider(plainPath).Push(new SyncState { Hosts = [plainHost] });
+            new EncryptedFolderSyncProvider(encryptedPath, "pw").Push(new SyncState { Hosts = [encryptedHost] });
+            var plainBytes = File.ReadAllBytes(plainPath);
+            var encryptedBytes = File.ReadAllBytes(encryptedPath);
+            var store = new HostStore(Path.Combine(dir, "local", "hosts.json"));
+
+            Assert.Throws<PlaintextSyncSnapshotException>(() => EncryptedFolderSync.Sync(store, folder, "pw"));
+            Assert.Equal(plainBytes, File.ReadAllBytes(plainPath));
+            Assert.Equal(encryptedBytes, File.ReadAllBytes(encryptedPath));
+            Assert.Empty(store.All());
+
+            store.Sync(new FolderSyncProvider(plainPath));
+            File.Move(plainPath, Path.Combine(dir, "retired.json"));
+            EncryptedFolderSync.Sync(store, folder, "pw");
+
+            var merged = new EncryptedFolderSyncProvider(encryptedPath, "pw").Pull()!;
+            Assert.Contains(merged.Hosts, h => h.Id == plainHost.Id);
+            Assert.Contains(merged.Hosts, h => h.Id == encryptedHost.Id);
+            Assert.False(File.Exists(plainPath));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void EncryptedFolderSyncCreatesNewFolderWithoutPlaintextSnapshot()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = new HostStore(Path.Combine(dir, "local", "hosts.json"));
+            store.Upsert(Host.Create("local", "local.example.com", "user"));
+            var folder = Path.Combine(dir, "new-folder");
+
+            EncryptedFolderSync.Sync(store, folder, "pw");
+
+            Assert.True(File.Exists(Path.Combine(folder, "hosts.enc")));
+            Assert.False(File.Exists(Path.Combine(folder, "hosts.json")));
+            Assert.Equal("local", new EncryptedFolderSyncProvider(Path.Combine(folder, "hosts.enc"), "pw").Pull()!.Hosts.Single().Alias);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void EncryptedFolderSyncDoesNotDeleteLocalDatabaseWhenItIsTheSyncFolder()
+    {
+        var dir = TempDir();
+        try
+        {
+            var path = Path.Combine(dir, "hosts.json");
+            var store = new HostStore(path);
+            store.Upsert(Host.Create("local", "local.example.com", "user"));
+            var original = File.ReadAllBytes(path);
+
+            Assert.Throws<PlaintextSyncSnapshotException>(() => EncryptedFolderSync.Sync(store, dir, "pw"));
+
+            Assert.Equal(original, File.ReadAllBytes(path));
+            Assert.False(File.Exists(Path.Combine(dir, "hosts.enc")));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
 }

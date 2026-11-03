@@ -129,3 +129,32 @@ public sealed class EncryptedFolderSyncProvider(string path, string passphrase) 
         FsUtil.AtomicWrite(path, SyncCrypto.Seal(state, passphrase));
     }
 }
+
+/// <summary>Runs encrypted folder sync only when the plaintext snapshot has been retired.</summary>
+public static class EncryptedFolderSync
+{
+    public static void Sync(HostStore store, string folder, string passphrase)
+    {
+        var plaintextPath = Path.Combine(folder, "hosts.json");
+        EnsurePlaintextRetired(plaintextPath);
+        store.Sync(new EncryptedFolderSyncProvider(Path.Combine(folder, "hosts.enc"), passphrase));
+        EnsurePlaintextRetired(plaintextPath);
+    }
+
+    private static void EnsurePlaintextRetired(string path)
+    {
+        try
+        {
+            File.GetAttributes(path);
+        }
+        catch (FileNotFoundException) { return; }
+        catch (DirectoryNotFoundException) { return; }
+
+        throw new PlaintextSyncSnapshotException();
+    }
+}
+
+public sealed class PlaintextSyncSnapshotException : IOException
+{
+    public PlaintextSyncSnapshotException() : base("The sync folder still contains hosts.json.") { }
+}

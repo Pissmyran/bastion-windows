@@ -26,7 +26,13 @@ Build the app (Windows only):
 dotnet build WindowsApp/WindowsApp.csproj
 ```
 
-The core and its tests target cross-platform .NET and can be tested anywhere. The WinUI app needs Windows.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:4e9a9fc838dea261c83115d69fda180cae1797a84ddf09e0bde2555bbb173703 -->
+
+The core and its tests run on cross-platform .NET; the WinUI app requires Windows. See [switching to encrypted sync](docs/sync-format.md#switching-to-encrypted-sync) before retiring a plaintext snapshot.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Review configuration
 
