@@ -44,6 +44,35 @@ public class SftpBrowserSessionTests
         return host;
     }
 
+    [Fact]
+    public void SetPermissionsAppliesRequestedBits()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var sshd = TestSshd.Start();
+        if (sshd is null) return;
+        var host = Host.Create("test", "127.0.0.1", Environment.GetEnvironmentVariable("USER") ?? Environment.UserName);
+        host.Port = sshd.Port;
+        host.Auth = new HostAuth.KeyFile(sshd.ClientKeyPath);
+        using var sftp = SftpBrowserSession.Connect(host, null, new KnownHosts(null));
+        var path = $"/tmp/bastion-cs-permissions-test-{Guid.NewGuid()}";
+        sftp.WriteFile(path, Array.Empty<byte>());
+        try
+        {
+            foreach (var text in new[] { "400", "600", "640", "000", "755", "777", "1777" })
+            {
+                var mode = Convert.ToInt16(text, 8);
+                sftp.SetPermissions(path, mode);
+                Assert.Equal((UnixFileMode)mode, File.GetUnixFileMode(path) & (UnixFileMode)0xFFF);
+            }
+            Assert.Throws<ArgumentOutOfRangeException>(() => sftp.SetPermissions(path, -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => sftp.SetPermissions(path, 0x1000));
+        }
+        finally
+        {
+            sftp.RemoveFile(path);
+        }
+    }
+
     /// <summary>
     /// Samma sak som <see cref="FullRoundTripAgainstARealSftpServer"/>, men
     /// mot en FRISTÅENDE test-sshd (se <see cref="TestSshd"/>) istället för
