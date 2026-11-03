@@ -78,7 +78,13 @@ public sealed class SftpBrowserSession : IDisposable
     public void Rename(string from, string to) => _client.RenameFile(from, to);
 
     /// <summary>mode: oktalt heltal, t.ex. 0b111101101 för "755" — samma notation som chmod.</summary>
-    public void SetPermissions(string path, short mode) => _client.ChangePermissions(path, mode);
+    public void SetPermissions(string path, short mode)
+    {
+        if (mode < 0 || mode > 0xFFF) throw new ArgumentOutOfRangeException(nameof(mode));
+        // SSH.NET expects octal digits as a decimal number, not a permission bitmask.
+        var octalDigits = short.Parse(Convert.ToString(mode, 8), System.Globalization.CultureInfo.InvariantCulture);
+        _client.ChangePermissions(path, octalDigits);
+    }
 
     public void SetOwner(string path, int uid, int gid)
     {
