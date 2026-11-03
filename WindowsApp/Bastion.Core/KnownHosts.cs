@@ -48,8 +48,8 @@ public sealed class KnownHosts
                     ? new KnownHostResult(KnownHostVerdict.Trusted)
                     : new KnownHostResult(KnownHostVerdict.Changed, stored);
 
-            _entries[id] = keyString;
             Append(id, keyString);
+            _entries[id] = keyString;
             return new KnownHostResult(KnownHostVerdict.Learned);
         }
     }
@@ -59,6 +59,19 @@ public sealed class KnownHosts
         if (_path is null) return;
         var dir = Path.GetDirectoryName(_path);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        File.AppendAllText(_path, $"{id} {keyString}\n");
+        using var stream = new FileStream(_path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+        using var reader = new StreamReader(stream, leaveOpen: true);
+        var buffer = new char[1024];
+        var last = -1;
+        int count;
+        while ((count = reader.Read(buffer, 0, buffer.Length)) > 0)
+            last = buffer[count - 1];
+
+        stream.Seek(0, SeekOrigin.End);
+        using var writer = new StreamWriter(stream, stream.Length == 0
+            ? new System.Text.UTF8Encoding(false)
+            : reader.CurrentEncoding);
+        if (last != -1 && last != '\r' && last != '\n') writer.Write('\n');
+        writer.Write($"{id} {keyString}\n");
     }
 }
