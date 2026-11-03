@@ -26,7 +26,13 @@ Build the app (Windows only):
 dotnet build WindowsApp/WindowsApp.csproj
 ```
 
-The core and its tests target cross-platform .NET and can be tested anywhere. The WinUI app needs Windows.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:9e7e9a870254a0e6acbf377a516160ee44c6b68e08cd93fba2eb9f019430e7d7 -->
+
+The core tests run on Linux, macOS and Windows; the WinUI build requires Windows. ZIP extraction requires Python 3 on the SSH host. It rejects unsafe member paths and archive links, and replaces existing files without following destination links. File permissions from Unix archives are subject to the host umask; files without Unix permissions and newly created directories default to private access.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Review configuration
 

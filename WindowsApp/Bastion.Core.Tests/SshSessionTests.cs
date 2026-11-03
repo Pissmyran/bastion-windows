@@ -109,6 +109,17 @@ public class SshSessionStandaloneTests
     }
 
     [Fact]
+    public void RunCommandReportsFailureWhenExitStatusIsChecked()
+    {
+        using var sshd = TestSshd.Start();
+        if (sshd is null) return;
+        var error = Assert.Throws<InvalidOperationException>(() => SshSession.RunCommand(
+            BuildHost(sshd), null, new KnownHosts(null), "echo extraction-failed >&2; exit 7", checkExitStatus: true));
+        Assert.Contains("exit status 7", error.Message);
+        Assert.Contains("extraction-failed", error.Message);
+    }
+
+    [Fact]
     public void ConnectsToAStandaloneTestSshdAndGetsAShellPrompt()
     {
         using var sshd = TestSshd.Start();

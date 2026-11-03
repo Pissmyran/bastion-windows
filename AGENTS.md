@@ -28,7 +28,13 @@ dotnet build WindowsApp/WindowsApp.csproj
 
 - **The WinUI app cannot be built on Linux.** Test the core.
 - **The fixture** in `Bastion.Core.Tests` is a copy of the sync format owned by `bastion_apple`.
-- **Extra care:** host key verification, sync format and encryption, commands built for remote systems.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:bcc5022dae69f3aadd52bcd93c78c5d274a76946d4fa24a9c7333a08495842ec -->
+
+- **Extra care:** preserve host key verification, sync and encryption behavior, and shell command safety. ZIP extraction requires Python 3 on the SSH host and uses directory-relative file operations to prevent link traversal.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Review configuration
 
