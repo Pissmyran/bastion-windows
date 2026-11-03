@@ -28,6 +28,14 @@ dotnet build WindowsApp/WindowsApp.csproj
 
 The core and its tests target cross-platform .NET and can be tested anywhere. The WinUI app needs Windows.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:226bee3d0949e65056dbfe905cb3eff0d66ebb6a5ecbe4bd92d4bc8b1ca3ede9 -->
+
+The SFTP editor opens files up to 1 MiB.
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## Review configuration
 
 CodeRabbit inherits shared defaults from [pissmyran/coderabbit](https://github.com/pissmyran/coderabbit). Repository-specific guidance lives in [.coderabbit.yaml](.coderabbit.yaml). Comment `@coderabbitai configuration` on the pull request to inspect the resolved settings; see [verification steps](docs/operations.md#coderabbit-configuration).

@@ -20,6 +20,14 @@ dotnet build WindowsApp/WindowsApp.csproj
 
 The core and its tests target cross-platform .NET and can be tested anywhere. The WinUI app needs Windows.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:226bee3d0949e65056dbfe905cb3eff0d66ebb6a5ecbe4bd92d4bc8b1ca3ede9 -->
+
+The SFTP editor opens files up to 1 MiB.
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## Contents
 
 | Path | Contents |

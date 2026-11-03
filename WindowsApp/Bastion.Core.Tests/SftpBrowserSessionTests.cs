@@ -44,6 +44,44 @@ public class SftpBrowserSessionTests
         return host;
     }
 
+    [Fact]
+    public void EditorReadIsBoundedEvenWhenRemoteSizeIsZero()
+    {
+        if (!OperatingSystem.IsLinux()) return;
+        using var sshd = TestSshd.Start();
+        if (sshd is null) return;
+        var host = Host.Create("test", "127.0.0.1", Environment.GetEnvironmentVariable("USER") ?? Environment.UserName);
+        host.Port = sshd.Port;
+        host.Auth = new HostAuth.KeyFile(sshd.ClientKeyPath);
+        using var sftp = SftpBrowserSession.Connect(host, null, new KnownHosts(null));
+        var dir = Path.Combine(Path.GetTempPath(), $"bastion-sftp-limit-{Guid.NewGuid()}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var path = Path.Combine(dir, "file");
+            var data = new byte[1024 * 1024];
+            new Random(42).NextBytes(data);
+            File.WriteAllBytes(path, data);
+            var regularLink = Path.Combine(dir, "regular-link");
+            File.CreateSymbolicLink(regularLink, path);
+            Assert.Equal(data, sftp.ReadFile(regularLink));
+
+            using (var file = new FileStream(path, FileMode.Append)) file.WriteByte(1);
+            Assert.Contains("1 MiB", Assert.Throws<IOException>(() => sftp.ReadFile(path)).Message);
+
+            var deviceLink = Path.Combine(dir, "device-link");
+            File.CreateSymbolicLink(deviceLink, "/dev/zero");
+            Assert.Contains("1 MiB", Assert.Throws<IOException>(() => sftp.ReadFile(deviceLink)).Message);
+            var empty = Path.Combine(dir, "empty");
+            File.WriteAllBytes(empty, Array.Empty<byte>());
+            Assert.Empty(sftp.ReadFile(empty));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     /// <summary>
     /// Samma sak som <see cref="FullRoundTripAgainstARealSftpServer"/>, men
     /// mot en FRISTÅENDE test-sshd (se <see cref="TestSshd"/>) istället för

@@ -16,6 +16,7 @@ public sealed record SftpEntry(string Name, bool IsDirectory, long Size);
 
 public sealed class SftpBrowserSession : IDisposable
 {
+    private const int MaxEditorFileBytes = 1024 * 1024;
     private readonly SftpClient _client;
 
     private SftpBrowserSession(SftpClient client) => _client = client;
@@ -42,8 +43,16 @@ public sealed class SftpBrowserSession : IDisposable
 
     public byte[] ReadFile(string path)
     {
+        using var remote = _client.OpenRead(path);
         using var stream = new MemoryStream();
-        _client.DownloadFile(path, stream);
+        var buffer = new byte[81920];
+        int read;
+        while ((read = remote.Read(buffer, 0, (int)Math.Min(buffer.Length, MaxEditorFileBytes - stream.Length + 1))) != 0)
+        {
+            if (read > MaxEditorFileBytes - stream.Length)
+                throw new IOException("Filen är större än redigerarens gräns på 1 MiB.");
+            stream.Write(buffer, 0, read);
+        }
         return stream.ToArray();
     }
 
