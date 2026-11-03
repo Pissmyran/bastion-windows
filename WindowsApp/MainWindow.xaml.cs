@@ -1162,7 +1162,7 @@ public sealed partial class MainWindow : Window
     /// men är INTE garanterat samma sak, samma kommentar som Swift/Rust-sidan.
     /// </summary>
     private string ResolveRealPath(FilesTabState state, string relativePath) =>
-        SshSession.RunCommand(state.Host, state.Password, _knownHosts, $"cd {ArchiveOperations.ShellQuote(relativePath)} && pwd").Trim();
+        SshSession.RunCommand(state.Host, state.Password, _knownHosts, $"cd {ArchiveOperations.ShellQuote(relativePath)} && pwd -P").Trim();
 
     private async Task OpenFilesTabAsync(Host host, string? password)
     {
@@ -1560,7 +1560,7 @@ public sealed partial class MainWindow : Window
             var command = entry.Name.EndsWith(".zip")
                 ? ArchiveOperations.ExtractZipCommand(entry.Name, absoluteDir)
                 : ArchiveOperations.ExtractTarGzCommand(entry.Name, absoluteDir);
-            await Task.Run(() => SshSession.RunCommand(state.Host, state.Password, _knownHosts, command));
+            await Task.Run(() => SshSession.RunCommand(state.Host, state.Password, _knownHosts, command, checkExitStatus: entry.Name.EndsWith(".zip")));
         }
         catch (Exception ex)
         {
