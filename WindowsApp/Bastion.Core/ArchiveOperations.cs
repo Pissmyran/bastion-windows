@@ -16,7 +16,9 @@ public static class ArchiveOperations
     public static string CreateTarGzCommand(IReadOnlyList<string> paths, string archiveName, string directory)
     {
         var quotedPaths = string.Join(" ", paths.Select(ShellQuote));
-        return $"cd {ShellQuote(directory)} && tar czf {ShellQuote(archiveName)} -- {quotedPaths}";
+        // O_EXCL atomically rejects every existing destination, including dangling symlinks.
+        const string create = "import os,sys; fd=os.open(sys.argv[1],os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o666); os.dup2(fd,1); os.execvp('tar',['tar','czf','-','--']+sys.argv[2:])";
+        return $"cd {ShellQuote(directory)} && python3 -I -c {ShellQuote(create)} {ShellQuote(archiveName)} {quotedPaths}";
     }
 
     public static string ExtractTarGzCommand(string archiveName, string directory) =>

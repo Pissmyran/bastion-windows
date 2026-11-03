@@ -30,6 +30,14 @@ dotnet build WindowsApp/WindowsApp.csproj
 - **The fixture** in `Bastion.Core.Tests` is a copy of the sync format owned by `bastion_apple`.
 - **Extra care:** host key verification, sync format and encryption, commands built for remote systems.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:67b7461e63094781f0e169504071388221505b3d6a22335b29e4c6ced88e37c6 -->
+
+Remote tar.gz compression requires Python 3.4 or later and tar. It fails if the destination archive already exists; remove or rename it before retrying.
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## Review configuration
 
 CodeRabbit inherits [pissmyran/coderabbit/.coderabbit.yaml](https://github.com/pissmyran/coderabbit/blob/main/.coderabbit.yaml); [.coderabbit.yaml](.coderabbit.yaml) adds Windows-specific review guidance and cross-platform context. Read the matching path instructions before changing those files. Use `@coderabbitai configuration` on the pull request and follow [docs/operations.md](docs/operations.md#coderabbit-configuration) to verify the resolved settings and source access.

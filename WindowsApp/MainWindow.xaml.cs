@@ -1543,7 +1543,7 @@ public sealed partial class MainWindow : Window
             var absoluteDir = await Task.Run(() => ResolveRealPath(state, fullDir));
             var archiveName = $"../{entry.Name}.tar.gz";
             var command = ArchiveOperations.CreateTarGzCommand(new[] { "." }, archiveName, absoluteDir);
-            await Task.Run(() => SshSession.RunCommand(state.Host, state.Password, _knownHosts, command));
+            await Task.Run(() => SshSession.RunCommand(state.Host, state.Password, _knownHosts, command, throwOnFailure: true));
         }
         catch (Exception ex)
         {

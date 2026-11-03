@@ -33,10 +33,57 @@ public class ArchiveOperationsTests
     }
 
     [Fact]
-    public void CreateTarGzCommandMatchesReferenceImplementation() =>
-        Assert.Equal(
-            "cd '/home/x' && tar czf 'out.tar.gz' -- 'a.txt' 'b.txt'",
-            ArchiveOperations.CreateTarGzCommand(new[] { "a.txt", "b.txt" }, "out.tar.gz", "/home/x"));
+    public void CreateTarGzCreatesArchiveAndRefusesExistingDestinations()
+    {
+        if (OperatingSystem.IsWindows()) return;
+
+        var root = Path.Combine(Path.GetTempPath(), $"bastion-archive-{Guid.NewGuid()}");
+        var source = Path.Combine(root, "source ' folder");
+        Directory.CreateDirectory(source);
+        try
+        {
+            File.WriteAllText(Path.Combine(source, "file ' name"), "archive content");
+            File.WriteAllText(Path.Combine(source, "sitecustomize.py"), "open('injected', 'w').write('executed')");
+            var command = ArchiveOperations.CreateTarGzCommand(new[] { "file ' name" }, "../out.tar.gz", source);
+            Assert.Equal(0, RunShell(command, source));
+            Assert.False(File.Exists(Path.Combine(source, "injected")));
+            Assert.Equal(0, RunShell($"tar xOzf {ArchiveOperations.ShellQuote(Path.Combine(root, "out.tar.gz"))} | test \"$(cat)\" = 'archive content'"));
+
+            var output = Path.Combine(root, "out.tar.gz");
+            var original = File.ReadAllBytes(output);
+            Assert.NotEqual(0, RunShell(command));
+            Assert.Equal(original, File.ReadAllBytes(output));
+
+            File.Delete(output);
+            var victim = Path.Combine(root, "victim");
+            File.WriteAllText(victim, "untouched");
+            File.CreateSymbolicLink(output, victim);
+            Assert.NotEqual(0, RunShell(command));
+            Assert.Equal("untouched", File.ReadAllText(victim));
+
+            File.Delete(output);
+            var missing = Path.Combine(root, "missing");
+            File.CreateSymbolicLink(output, missing);
+            Assert.NotEqual(0, RunShell(command));
+            Assert.False(File.Exists(missing));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static int RunShell(string command, string? pythonPath = null)
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo("/bin/sh") { UseShellExecute = false, RedirectStandardError = true };
+        if (pythonPath is not null) psi.Environment["PYTHONPATH"] = pythonPath;
+        psi.ArgumentList.Add("-c");
+        psi.ArgumentList.Add(command);
+        using var process = System.Diagnostics.Process.Start(psi)!;
+        process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        return process.ExitCode;
+    }
 
     [Fact]
     public void ExtractTarGzCommandMatchesReferenceImplementation() =>
