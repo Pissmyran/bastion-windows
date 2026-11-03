@@ -28,6 +28,14 @@ dotnet build WindowsApp/WindowsApp.csproj
 
 The core and its tests target cross-platform .NET and can be tested anywhere. The WinUI app needs Windows.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:ec7dbab132f47865280fefb81c44c2e5e4301c75bf424fd692b210e4bcc3b632 -->
+
+The terminal processes up to 256 indexed color pairs per OSC 4 sequence. Send additional pairs in separate sequences.
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## Review configuration
 
 CodeRabbit inherits shared defaults from [pissmyran/coderabbit](https://github.com/pissmyran/coderabbit). Repository-specific guidance lives in [.coderabbit.yaml](.coderabbit.yaml). Comment `@coderabbitai configuration` on the pull request to inspect the resolved settings; see [verification steps](docs/operations.md#coderabbit-configuration).

@@ -18,6 +18,18 @@ Test the core (works on Linux, macOS and Windows):
 dotnet test WindowsApp/Bastion.Core.Tests
 ```
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:e740cbf639c35f4f7bb9169941273f0be71005ca78f66f837f8ac636e8280cf8 -->
+
+Test the terminal parser (requires Node.js):
+
+```bash
+node --test tests/xterm-osc4.test.cjs
+```
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 Build the app (Windows only):
 
 ```bash
