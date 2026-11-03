@@ -24,7 +24,7 @@ public sealed class SftpBrowserSession : IDisposable
     {
         using var agent = SshSession.ConnectAgentIfNeeded(host);
         var auth = SshSession.BuildAuthenticationMethod(host, password, agent);
-        var connectionInfo = new ConnectionInfo(host.HostName, (int)host.Port, host.User, auth);
+        var connectionInfo = SshSession.CreateConnectionInfo(host, auth);
         var client = new SftpClient(connectionInfo);
         client.HostKeyReceived += SshSession.MakeHostKeyHandler(host, knownHosts, throwOnChange: true);
         client.Connect();

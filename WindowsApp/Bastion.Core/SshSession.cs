@@ -53,7 +53,7 @@ public sealed class SshSession : IDisposable
     {
         using var agent = ConnectAgentIfNeeded(host);
         var auth = BuildAuthenticationMethod(host, password, agent);
-        var connectionInfo = new ConnectionInfo(host.HostName, (int)host.Port, host.User, auth);
+        var connectionInfo = CreateConnectionInfo(host, auth);
         var client = new SshClient(connectionInfo);
         client.HostKeyReceived += MakeHostKeyHandler(host, knownHosts, throwOnChange: true);
 
@@ -245,6 +245,15 @@ public sealed class SshSession : IDisposable
     internal static SshAgentClient? ConnectAgentIfNeeded(Host host) =>
         host.Auth is HostAuth.AgentDefault ? SshAgentClient.Connect() : null;
 
+    internal static ConnectionInfo CreateConnectionInfo(Host host, AuthenticationMethod auth)
+    {
+        var info = new ConnectionInfo(host.HostName, (int)host.Port, host.User, auth);
+        // SSH.NET's zlib decompressor does not limit the expanded packet size.
+        info.CompressionAlgorithms.Clear();
+        info.CompressionAlgorithms.Add("none", null);
+        return info;
+    }
+
     /// <summary>
     /// Delas med <see cref="SftpBrowserSession"/> — samma auth-uppslagning
     /// för SFTP-anslutningar. `agent`: se <see cref="ConnectAgentIfNeeded"/>
@@ -307,7 +316,7 @@ public sealed class SshSession : IDisposable
     {
         using var agent = ConnectAgentIfNeeded(host);
         var auth = BuildAuthenticationMethod(host, password, agent);
-        var connectionInfo = new ConnectionInfo(host.HostName, (int)host.Port, host.User, auth);
+        var connectionInfo = CreateConnectionInfo(host, auth);
         using var client = new SshClient(connectionInfo);
         client.HostKeyReceived += MakeHostKeyHandler(host, knownHosts, throwOnChange: false);
         client.Connect();
