@@ -23,4 +23,12 @@ Bastion for Windows is a standalone .NET app. The core is a port of the Swift co
 
 ## Security boundary
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:0a8e77ee33c556c399424c539994aff39d9929b9d3bb606cc2e1c68eae57bdbd -->
+
 Host key verification in `KnownHosts.cs` and `HostAuth.cs` rejects a changed key for the same host and port. Keys and passwords are never stored in the repo or in test data.
+
+Hostnames containing whitespace or control characters are rejected before connecting. Known-host records retain the shared line format; malformed records or conflicting pins for the same identity stop loading until the file is corrected.
+
+<!-- /coderabbit-ai-generated:v1 -->

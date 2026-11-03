@@ -22,11 +22,13 @@ public sealed class SftpBrowserSession : IDisposable
 
     public static SftpBrowserSession Connect(Host host, string? password, KnownHosts knownHosts)
     {
+        var hostName = host.HostName;
+        KnownHosts.ValidateHostName(hostName);
         using var agent = SshSession.ConnectAgentIfNeeded(host);
         var auth = SshSession.BuildAuthenticationMethod(host, password, agent);
-        var connectionInfo = new ConnectionInfo(host.HostName, (int)host.Port, host.User, auth);
+        var connectionInfo = new ConnectionInfo(hostName, (int)host.Port, host.User, auth);
         var client = new SftpClient(connectionInfo);
-        client.HostKeyReceived += SshSession.MakeHostKeyHandler(host, knownHosts, throwOnChange: true);
+        client.HostKeyReceived += SshSession.MakeHostKeyHandler(connectionInfo.Host, connectionInfo.Port, knownHosts, throwOnChange: true);
         client.Connect();
         return new SftpBrowserSession(client);
     }
