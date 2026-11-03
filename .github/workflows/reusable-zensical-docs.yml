@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: Git ref to publish, normally the stable GitHub Release tag.
+        description: Git ref to publish; use a fully qualified tag ref for releases.
         required: true
         type: string
       config_file:
