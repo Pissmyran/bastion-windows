@@ -157,6 +157,45 @@ public class SyncEngineTests
         Assert.Equal(ab.Hosts[0].Alias, ba.Hosts[0].Alias);
     }
 
+    [Fact]
+    public void TieBreakTracksWinnersAcrossNewerEditsAndTies()
+    {
+        var id = Guid.NewGuid();
+        var state = new SyncState
+        {
+            Hosts =
+            {
+                HostAt("z", id, 10), HostAt("a", id, 10),
+                HostAt("b", id, 20), HostAt("a", id, 20),
+                HostAt("c", id, 20), HostAt("b", id, 20),
+                HostAt("z", id, 10),
+            },
+        };
+
+        var merged = SyncEngine.Merge(state, new SyncState());
+        Assert.Equal("c", Assert.Single(merged.Hosts).Alias);
+    }
+
+    [Fact]
+    public void TiedDuplicatesDoNotRepeatedlyAllocateTheLargeWinningKey()
+    {
+        var id = Guid.NewGuid();
+        var winner = HostAt("z", id, 42);
+        winner.StartupCommand = new string('x', 256 * 1024);
+        var state = new SyncState { Hosts = { winner } };
+        for (var i = 0; i < 256; i++)
+            state.Hosts.Add(HostAt("a", id, 42));
+
+        // Warm up serialization before measuring allocations on this thread.
+        SyncEngine.Merge(new SyncState { Hosts = { HostAt("a", id, 42), HostAt("b", id, 42) } }, new SyncState());
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var merged = SyncEngine.Merge(state, new SyncState());
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Same(winner, Assert.Single(merged.Hosts));
+        Assert.True(allocated < 16 * 1024 * 1024, $"Merge allocated {allocated} bytes");
+    }
+
     /// <summary>
     /// Riktig cross-instans-verifiering: två oberoende HostStores synkar via
     /// en delad FolderSyncProvider-fil och KONVERGERAR — samma test som
