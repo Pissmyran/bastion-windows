@@ -5,6 +5,20 @@ namespace Bastion.Core.Tests;
 
 public class ArchiveOperationsTests
 {
+    [Theory]
+    [InlineData("/home/reports \n", "/home/reports ")]
+    [InlineData("/home/reports\t\r\n\n", "/home/reports\t\r\n")]
+    [InlineData("/\n", "/")]
+    public void ParseWorkingDirectoryPreservesPathWhitespace(string output, string expected) =>
+        Assert.Equal(expected, ArchiveOperations.ParseWorkingDirectory(output));
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("/home/reports")]
+    [InlineData("relative\n")]
+    public void ParseWorkingDirectoryRejectsInvalidOutput(string output) =>
+        Assert.Throws<InvalidOperationException>(() => ArchiveOperations.ParseWorkingDirectory(output));
+
     [Fact]
     public void ShellQuoteEscapesEmbeddedSingleQuotes()
     {

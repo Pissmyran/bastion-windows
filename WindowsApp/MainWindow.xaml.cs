@@ -1155,14 +1155,12 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Faktisk absolut sökväg via ett engångskommando (motsvarar Swiftsidans
-    /// <c>SFTPClient.realpath</c>/Rusts samma anrop) — SSH.NETs SftpClient
-    /// saknar en egen realpath-motsvarighet (verifierat mot API:t). SFTP:s
-    /// currentPath och exec-kanalens arbetskatalog delar typiskt startkatalog
-    /// men är INTE garanterat samma sak, samma kommentar som Swift/Rust-sidan.
+    /// Resolves the directory in the SSH command session. The SFTP and exec
+    /// sessions can have different working directories or filesystem roots.
     /// </summary>
     private string ResolveRealPath(FilesTabState state, string relativePath) =>
-        SshSession.RunCommand(state.Host, state.Password, _knownHosts, $"cd {ArchiveOperations.ShellQuote(relativePath)} && pwd").Trim();
+        ArchiveOperations.ParseWorkingDirectory(SshSession.RunCommand(
+            state.Host, state.Password, _knownHosts, ArchiveOperations.ResolveDirectoryCommand(relativePath)));
 
     private async Task OpenFilesTabAsync(Host host, string? password)
     {

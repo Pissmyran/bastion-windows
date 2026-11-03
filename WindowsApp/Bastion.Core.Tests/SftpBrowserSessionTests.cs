@@ -33,6 +33,10 @@ public class SftpBrowserSessionUtf8Tests
 /// </summary>
 public class SftpBrowserSessionTests
 {
+    private readonly Xunit.Abstractions.ITestOutputHelper _output;
+
+    public SftpBrowserSessionTests(Xunit.Abstractions.ITestOutputHelper output) => _output = output;
+
     private static bool HasTestKey => Environment.GetEnvironmentVariable("BASTION_TEST_SSH_KEY") is not null;
 
     private static Host BuildTestHost()
@@ -42,6 +46,67 @@ public class SftpBrowserSessionTests
         var host = Host.Create("test", "127.0.0.1", user);
         host.Auth = new HostAuth.KeyFile(keyPath);
         return host;
+    }
+
+    [Fact]
+    public void ArchiveOperationsUseTheSelectedWhitespaceSuffixedDirectory()
+    {
+        using var sshd = TestSshd.Start();
+        if (sshd is null)
+        {
+            _output.WriteLine("Standalone sshd unavailable; archive integration test did not run.");
+            return;
+        }
+        _output.WriteLine("Standalone sshd started; running archive integration test.");
+        var host = Host.Create("test", "127.0.0.1", Environment.GetEnvironmentVariable("USER") ?? Environment.UserName);
+        host.Port = sshd.Port;
+        host.Auth = new HostAuth.KeyFile(sshd.ClientKeyPath);
+        var knownHosts = new KnownHosts(null);
+        using var sftp = SftpBrowserSession.Connect(host, null, knownHosts);
+
+        var root = $"/tmp/bastion-cs-archive-test-{Guid.NewGuid()}";
+        var selectedName = "reports \t\n";
+        var selected = $"{root}/{selectedName}";
+        var neighbor = $"{root}/reports";
+        sftp.CreateDirectory(root);
+        try
+        {
+            sftp.CreateDirectory(selected);
+            sftp.CreateDirectory(neighbor);
+            sftp.WriteFile($"{selected}/selected.txt", "selected"u8.ToArray());
+            sftp.WriteFile($"{neighbor}/private.txt", "private"u8.ToArray());
+
+            var entry = Assert.Single(sftp.List(root), e => e.Name == selectedName);
+            var resolved = ArchiveOperations.ParseWorkingDirectory(SshSession.RunCommand(
+                host, null, knownHosts, ArchiveOperations.ResolveDirectoryCommand($"{root}/{entry.Name}")));
+            Assert.Equal(selected, resolved);
+            SshSession.RunCommand(host, null, knownHosts,
+                ArchiveOperations.CreateTarGzCommand(new[] { "." }, $"../{entry.Name}.tar.gz", resolved));
+
+            var archive = sftp.ReadFile($"{root}/{entry.Name}.tar.gz");
+            using (var gzip = new System.IO.Compression.GZipStream(new MemoryStream(archive), System.IO.Compression.CompressionMode.Decompress))
+            using (var tar = new System.Formats.Tar.TarReader(gzip))
+            {
+                var names = new List<string>();
+                System.Formats.Tar.TarEntry? item;
+                while ((item = tar.GetNextEntry()) is not null) names.Add(item.Name);
+                Assert.Contains("./selected.txt", names);
+                Assert.DoesNotContain("./private.txt", names);
+            }
+
+            sftp.WriteFile($"{selected}/archive.tar.gz", archive);
+            sftp.RemoveFile($"{selected}/selected.txt");
+            var extractionDirectory = ArchiveOperations.ParseWorkingDirectory(SshSession.RunCommand(
+                host, null, knownHosts, ArchiveOperations.ResolveDirectoryCommand(selected)));
+            SshSession.RunCommand(host, null, knownHosts,
+                ArchiveOperations.ExtractTarGzCommand("archive.tar.gz", extractionDirectory));
+            Assert.Equal("selected", System.Text.Encoding.UTF8.GetString(sftp.ReadFile($"{selected}/selected.txt")));
+            Assert.Equal("private", System.Text.Encoding.UTF8.GetString(sftp.ReadFile($"{neighbor}/private.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     /// <summary>
