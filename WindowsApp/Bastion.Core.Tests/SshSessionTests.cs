@@ -1,4 +1,7 @@
 using Bastion.Core;
+using System.Net.Sockets;
+using System.Reflection;
+using Renci.SshNet;
 
 namespace Bastion.Core.Tests;
 
@@ -100,6 +103,115 @@ public class SshSessionTests
 /// </summary>
 public class SshSessionStandaloneTests
 {
+    [Fact]
+    public async Task ReplacementDoesNotAbortWhilePreviousProbeWaitsForReply()
+    {
+        using var sshd = TestSshd.Start();
+        if (sshd is null) return;
+        using var proxy = BlackholeTcpProxy.Start(sshd.Port);
+        var host = BuildHost(sshd);
+        host.Port = proxy.Port;
+        using var session = SshSession.Connect(host, null, new KnownHosts(null));
+        const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+        var client = (SshClient)typeof(SshSession).GetField("_client", fields)!.GetValue(session)!;
+        var transport = typeof(BaseClient).GetProperty("Session", fields)!.GetValue(client)!;
+        var socket = (Socket)typeof(Session).GetField("_socket", fields)!.GetValue(transport)!;
+
+        proxy.Blackhole();
+        session.StartKeepAlive(TimeSpan.FromMilliseconds(20), TimeSpan.FromSeconds(2), maxMissed: 1);
+        Assert.True(proxy.WaitForDroppedClientTraffic(TimeSpan.FromSeconds(2)));
+        session.StartKeepAlive(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(200), maxMissed: 10);
+        await Task.Delay(600);
+        Assert.False(socket.SafeHandle.IsClosed, "A pending reply must not be treated as a blocked send.");
+        session.StopKeepAlive();
+    }
+
+    [Theory]
+    [InlineData("probe")]
+    [InlineData("replacement")]
+    [InlineData("dispose")]
+    public async Task BlockedTransportWriteIsAborted(string action)
+    {
+        using var sshd = TestSshd.Start();
+        if (sshd is null) return;
+        using var proxy = BlackholeTcpProxy.Start(sshd.Port);
+        var host = BuildHost(sshd);
+        host.Port = proxy.Port;
+        using var session = SshSession.Connect(host, null, new KnownHosts(null));
+        session.StopKeepAlive();
+
+        const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+        var client = (SshClient)typeof(SshSession).GetField("_client", fields)!.GetValue(session)!;
+        var transport = typeof(BaseClient).GetProperty("Session", fields)!.GetValue(client)!;
+        var socket = (Socket)typeof(Session).GetField("_socket", fields)!.GetValue(transport)!;
+        var disposeLock = typeof(Session).GetField("_socketDisposeLock", fields)!.GetValue(transport)!;
+        var success = typeof(Session).GetField("RequestSuccessReceived", fields)!;
+        var failure = typeof(Session).GetField("RequestFailureReceived", fields)!;
+        var initialSuccess = success.GetValue(transport);
+        var initialFailure = failure.GetValue(transport);
+        socket.SendBufferSize = 4096;
+        proxy.PauseClientReads();
+
+        using var started = new ManualResetEventSlim();
+        using var lost = new ManualResetEventSlim();
+        void OnConnectionLost(SshSession candidate)
+        {
+            if (ReferenceEquals(candidate, session)) lost.Set();
+        }
+        SshSession.SessionConnectionLost += OnConnectionLost;
+        var writer = Task.Run(() =>
+        {
+            lock (disposeLock)
+            {
+                started.Set();
+                try
+                {
+                    var buffer = new byte[64 * 1024];
+                    while (true) socket.Send(buffer);
+                }
+                catch (SocketException) { }
+                catch (ObjectDisposedException) { }
+            }
+        });
+
+        try
+        {
+            Assert.True(started.Wait(TimeSpan.FromSeconds(2)));
+            Assert.True(proxy.WaitForPausedClientReads(TimeSpan.FromSeconds(2)));
+            Assert.NotSame(writer, await Task.WhenAny(writer, Task.Delay(300)));
+            Assert.False(writer.IsCompleted, "The socket write should be blocked by backpressure.");
+
+            Task? disposal = null;
+            if (action == "dispose")
+            {
+                disposal = Task.Run(session.Dispose);
+            }
+            else
+            {
+                session.StartKeepAlive(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(300), maxMissed: 1);
+                if (action == "replacement")
+                {
+                    Assert.True(SpinWait.SpinUntil(() => !Equals(initialSuccess, success.GetValue(transport)), TimeSpan.FromSeconds(2)));
+                    session.StopKeepAlive();
+                    await Task.Delay(500);
+                    Assert.False(socket.SafeHandle.IsClosed, "A stopped monitor aborted the connection.");
+                    session.StartKeepAlive(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(300), maxMissed: 1);
+                }
+            }
+            await writer.WaitAsync(TimeSpan.FromSeconds(5));
+            if (disposal is not null) await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+            else Assert.True(lost.Wait(TimeSpan.FromSeconds(5)), "The stalled probe did not report the lost connection.");
+            Assert.False(session.Shell.CanWrite);
+            Assert.Equal(initialSuccess, success.GetValue(transport));
+            Assert.Equal(initialFailure, failure.GetValue(transport));
+        }
+        finally
+        {
+            socket.Close(0);
+            SshSession.SessionConnectionLost -= OnConnectionLost;
+        }
+    }
+
     private static Host BuildHost(TestSshd sshd)
     {
         var host = Host.Create("test", "127.0.0.1", Environment.GetEnvironmentVariable("USER") ?? Environment.UserName);

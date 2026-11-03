@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -33,6 +34,10 @@ internal static class SshNetGlobalLivenessProbe
         ClientSessionProperty.PropertyType.GetMethod("SendMessage", BindingFlags.Instance | BindingFlags.Public)
         ?? throw new NotSupportedException("SSH.NET ISession saknar SendMessage(Message)");
 
+    private static readonly FieldInfo SessionSocketField =
+        typeof(Session).GetField("_socket", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new NotSupportedException("SSH.NET Session saknar transportens socket");
+
     private static readonly ConstructorInfo GlobalRequestConstructor =
         typeof(GlobalRequestMessage).GetConstructor(
             BindingFlags.Instance | BindingFlags.NonPublic,
@@ -46,6 +51,11 @@ internal static class SshNetGlobalLivenessProbe
         if (!ClientSessionProperty.PropertyType.IsAssignableFrom(typeof(Session)))
         {
             throw new NotSupportedException("SSH.NET BaseClient.Session har ändrat typ");
+        }
+
+        if (SessionSocketField.FieldType != typeof(Socket))
+        {
+            throw new NotSupportedException("SSH.NET Session har ändrat sockettyp");
         }
 
         var sendParameters = SendMessageMethod.GetParameters();
@@ -64,13 +74,12 @@ internal static class SshNetGlobalLivenessProbe
     }
 
     /// <summary>
-    /// Skickar OpenSSH:s no-op globala keepalive-request och väntar högst
-    /// <paramref name="timeout"/> på SSH_MSG_REQUEST_SUCCESS eller
-    /// SSH_MSG_REQUEST_FAILURE. Båda svaren bevisar att motparten lever.
-    /// En timeout returnerar <see langword="false"/> utan att koppla ner SSH.NET-
-    /// sessionen; transportfel kastas till anroparen och räknas också som miss.
+    /// Sends an OpenSSH no-op global request and waits for a success or failure
+    /// reply for the remaining deadline. Either response proves the peer is alive.
+    /// Reply timeouts leave the session connected. A blocked send is aborted by
+    /// the caller's deadline, since SSH.NET cannot cancel its synchronous write.
     /// </summary>
-    public static bool SendAndWaitForReply(SshClient client, TimeSpan timeout)
+    public static bool SendAndWaitForReply(SshClient client, Func<TimeSpan> remainingAfterSend)
     {
         ArgumentNullException.ThrowIfNull(client);
 
@@ -94,13 +103,26 @@ internal static class SshNetGlobalLivenessProbe
                 GlobalRequestConstructor,
                 new object[] { KeepAliveRequestName, true });
             InvokeUnwrapped(SendMessageMethod, session, new object[] { request });
-            return reply.Task.Wait(timeout);
+            var remaining = remainingAfterSend();
+            return remaining > TimeSpan.Zero && reply.Task.Wait(remaining);
         }
         finally
         {
             session.RequestSuccessReceived -= success;
             session.RequestFailureReceived -= failure;
         }
+    }
+
+    public static Socket? GetSocket(SshClient client) =>
+        GetValueUnwrapped(ClientSessionProperty, client) is Session session
+            ? (Socket?)SessionSocketField.GetValue(session)
+            : null;
+
+    public static void Abort(Socket? socket)
+    {
+        try { socket?.Close(0); }
+        catch (ObjectDisposedException) { }
+        catch (SocketException) { }
     }
 
     private static object? GetValueUnwrapped(PropertyInfo property, object target)
