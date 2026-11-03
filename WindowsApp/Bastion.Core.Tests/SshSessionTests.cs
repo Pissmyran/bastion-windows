@@ -109,6 +109,25 @@ public class SshSessionStandaloneTests
     }
 
     [Fact]
+    public void RejectsAKeyPinnedAfterTheStoreWasConstructed()
+    {
+        using var sshd = TestSshd.Start();
+        if (sshd is null) return;
+        var host = BuildHost(sshd);
+        var dir = Path.Combine(Path.GetTempPath(), $"bastion-known-hosts-{Guid.NewGuid()}");
+        var path = Path.Combine(dir, "known_hosts");
+        try
+        {
+            var stale = new KnownHosts(path);
+            new KnownHosts(path).Check(host.HostName, (int)host.Port, "ssh-ed25519 different-key");
+            var ex = Assert.Throws<SshHostKeyChangedException>(() => SshSession.Connect(host, null, stale));
+            Assert.Contains("HAR ÄNDRATS", ex.Message);
+            Assert.Single(File.ReadAllLines(path));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void ConnectsToAStandaloneTestSshdAndGetsAShellPrompt()
     {
         using var sshd = TestSshd.Start();
