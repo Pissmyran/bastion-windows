@@ -40,6 +40,9 @@ public sealed class SftpBrowserSession : IDisposable
             .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+    /// <summary>Resolve a path in the SFTP session without changing its working directory.</summary>
+    public string ResolvePath(string path) => _client.Get(path).FullName;
+
     public byte[] ReadFile(string path)
     {
         using var stream = new MemoryStream();

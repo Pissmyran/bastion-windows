@@ -28,7 +28,13 @@ dotnet build WindowsApp/WindowsApp.csproj
 
 - **The WinUI app cannot be built on Linux.** Test the core.
 - **The fixture** in `Bastion.Core.Tests` is a copy of the sync format owned by `bastion_apple`.
-- **Extra care:** host key verification, sync format and encryption, commands built for remote systems.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:522e910b2f9c7b0efc1330eb84c0d66406d47644d6e9ac958486ef2350b50af7 -->
+
+- **Extra care:** host key verification, sync format and encryption, and remote commands. Archive actions require a POSIX `sh` and SFTP paths accessible to that shell.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Review configuration
 

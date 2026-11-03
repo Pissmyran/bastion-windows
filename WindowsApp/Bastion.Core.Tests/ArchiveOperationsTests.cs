@@ -51,4 +51,58 @@ public class ArchiveOperationsTests
     [Fact]
     public void ExtractZipCommandMatchesReferenceImplementation() =>
         Assert.Equal("cd '/home/x' && unzip -o -q './out.zip'", ArchiveOperations.ExtractZipCommand("out.zip", "/home/x"));
+
+    [Fact]
+    public void ArchiveCommandsTreatHostileNamesAsData()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        ExerciseArchiveCommands("/bin/sh", "-c");
+    }
+
+    [Fact]
+    public void ArchiveCommandsTreatHostileNamesAsDataInPowerShell()
+    {
+        var powerShell = Environment.GetEnvironmentVariable("BASTION_TEST_PWSH");
+        if (string.IsNullOrEmpty(powerShell)) return;
+        ExerciseArchiveCommands(powerShell, "-Command");
+    }
+
+    private static void ExerciseArchiveCommands(string shell, string commandOption)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bastion-archive-{Guid.NewGuid()}");
+        var directory = Path.Combine(root, "dir';touch PWNED;echo 'å\n");
+        var archive = "archive';touch PWNED;echo 'å.tar.gz";
+        Directory.CreateDirectory(directory);
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "content.txt"), "content");
+            RunArchiveCommand(shell, commandOption, root, ArchiveOperations.CreateTarGzCommand(new[] { "." }, "../" + archive, directory));
+            Assert.True(File.Exists(Path.Combine(root, archive)));
+            File.Delete(Path.Combine(directory, "content.txt"));
+            RunArchiveCommand(shell, commandOption, root, ArchiveOperations.ExtractTarGzCommand(archive, root));
+            Assert.Equal("content", File.ReadAllText(Path.Combine(root, "content.txt")));
+            Assert.False(File.Exists(Path.Combine(root, "PWNED")));
+            Assert.False(File.Exists(Path.Combine(directory, "PWNED")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void RunArchiveCommand(string shell, string commandOption, string workingDirectory, string command)
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo(shell)
+        {
+            WorkingDirectory = workingDirectory,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        psi.ArgumentList.Add(commandOption);
+        psi.ArgumentList.Add(ArchiveOperations.ForPosixShell(command));
+        using var process = System.Diagnostics.Process.Start(psi)!;
+        var error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        Assert.True(process.ExitCode == 0, error);
+    }
 }

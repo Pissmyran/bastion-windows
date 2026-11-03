@@ -303,7 +303,14 @@ public sealed class SshSession : IDisposable
         };
 
     /// <summary>Kör ETT kommando över en fristående anslutning (motsvarar ssh::run_command).</summary>
-    public static string RunCommand(Host host, string? password, KnownHosts knownHosts, string command)
+    public static string RunCommand(Host host, string? password, KnownHosts knownHosts, string command) =>
+        RunCommandInternal(host, password, knownHosts, command, requireSuccess: false);
+
+    /// <summary>Run a command and reject failure or a missing exit status.</summary>
+    public static string RunCommandChecked(Host host, string? password, KnownHosts knownHosts, string command) =>
+        RunCommandInternal(host, password, knownHosts, command, requireSuccess: true);
+
+    private static string RunCommandInternal(Host host, string? password, KnownHosts knownHosts, string command, bool requireSuccess)
     {
         using var agent = ConnectAgentIfNeeded(host);
         var auth = BuildAuthenticationMethod(host, password, agent);
@@ -316,7 +323,10 @@ public sealed class SshSession : IDisposable
         // användningsfall som ssh.rs::COMMAND_TIMEOUT — Docker-listor/
         // -loggar) blockera anropet obestämt (CodeRabbit-fynd).
         cmd.CommandTimeout = TimeSpan.FromSeconds(30);
-        return cmd.Execute();
+        var output = cmd.Execute();
+        if (requireSuccess && cmd.ExitStatus != 0)
+            throw new InvalidOperationException($"Remote command failed (exit status: {cmd.ExitStatus?.ToString() ?? "unknown"}): {cmd.Error}");
+        return output;
     }
 
     public void Dispose()

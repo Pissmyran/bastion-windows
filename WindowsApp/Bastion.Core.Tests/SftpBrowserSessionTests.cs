@@ -54,17 +54,39 @@ public class SftpBrowserSessionTests
     public void FullRoundTripAgainstAStandaloneTestSshd()
     {
         using var sshd = TestSshd.Start();
-        if (sshd is null) return; // se TestSshd.Start doc — hoppar över om miljön saknar sshd/ssh-keygen
+        if (sshd is null)
+        {
+            Assert.NotEqual("1", Environment.GetEnvironmentVariable("BASTION_REQUIRE_TEST_SSHD"));
+            return; // se TestSshd.Start doc — hoppar över om miljön saknar sshd/ssh-keygen
+        }
         var host = Host.Create("test", "127.0.0.1", Environment.GetEnvironmentVariable("USER") ?? Environment.UserName);
         host.Port = sshd.Port;
         host.Auth = new HostAuth.KeyFile(sshd.ClientKeyPath);
         var knownHosts = new KnownHosts(null);
         using var sftp = SftpBrowserSession.Connect(host, null, knownHosts);
 
+        Assert.Equal("ok", SshSession.RunCommandChecked(host, null, knownHosts, "printf ok"));
+        var failure = Assert.Throws<InvalidOperationException>(() =>
+            SshSession.RunCommandChecked(host, null, knownHosts, "exit 127"));
+        Assert.Contains("127", failure.Message);
+
         var dir = $"/tmp/bastion-cs-sftp-standalone-test-{Guid.NewGuid()}";
         sftp.CreateDirectory(dir);
         try
         {
+            var initialDir = sftp.ResolvePath(".");
+            var namedDir = $"{dir}/name';touch PWNED;echo 'å\n";
+            sftp.CreateDirectory(namedDir);
+            try
+            {
+                Assert.Equal(namedDir, sftp.ResolvePath(namedDir + "/."));
+                Assert.Equal(namedDir, sftp.ResolvePath(Path.GetRelativePath(initialDir, namedDir)));
+                Assert.Equal(initialDir, sftp.ResolvePath("."));
+            }
+            finally
+            {
+                sftp.RemoveDirectory(namedDir);
+            }
             var filePath = $"{dir}/hello.txt";
             sftp.WriteFile(filePath, System.Text.Encoding.UTF8.GetBytes("hej å ä ö"));
 

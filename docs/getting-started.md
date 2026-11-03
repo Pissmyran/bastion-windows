@@ -18,7 +18,13 @@ Build the app (Windows only):
 dotnet build WindowsApp/WindowsApp.csproj
 ```
 
-The core and its tests target cross-platform .NET and can be tested anywhere. The WinUI app needs Windows.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:4d09ba8730e3415736cb32143eb877bff93aaa05d777b3be0707d0483bb1ddea -->
+
+The core and its tests run on cross-platform .NET; the WinUI app requires Windows. Remote archive actions require a POSIX `sh` and the relevant `tar` or `unzip` utility, with SFTP paths accessible to that shell.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Contents
 
