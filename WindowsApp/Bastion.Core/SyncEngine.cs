@@ -21,12 +21,12 @@ public static class SyncEngine
 
     public static SyncState Merge(SyncState a, SyncState b)
     {
-        var newestHost = new Dictionary<Guid, Host>();
+        var newestHost = new Dictionary<Guid, (Host Host, string? Key)>();
         foreach (var h in a.Hosts.Concat(b.Hosts))
         {
             if (!newestHost.TryGetValue(h.Id, out var existing))
             {
-                newestHost[h.Id] = h;
+                newestHost[h.Id] = (h, null);
                 continue;
             }
             // `>=` gjorde detta ORDNINGSBEROENDE på en EXAKT tidsstämpel-
@@ -35,9 +35,18 @@ public static class SyncEngine
             // `Merge(a, b) != Merge(b, a)`, ett brott mot kommutativitets-
             // löftet (CodeRabbit-fynd). Avgörs nu istället av en stabil
             // jämförelse av VÄRDET självt när tidsstämplarna är exakt lika.
-            var cmp = h.ModifiedAt.Seconds.CompareTo(existing.ModifiedAt.Seconds);
-            var replace = cmp > 0 || (cmp == 0 && string.CompareOrdinal(TiebreakKey(h), TiebreakKey(existing)) > 0);
-            if (replace) newestHost[h.Id] = h;
+            var cmp = h.ModifiedAt.Seconds.CompareTo(existing.Host.ModifiedAt.Seconds);
+            if (cmp > 0)
+                newestHost[h.Id] = (h, null);
+            else if (cmp == 0)
+            {
+                // Cache the winner's key so tied duplicates cannot repeatedly serialize it.
+                var existingKey = existing.Key ?? TiebreakKey(existing.Host);
+                var candidateKey = TiebreakKey(h);
+                newestHost[h.Id] = string.CompareOrdinal(candidateKey, existingKey) > 0
+                    ? (h, candidateKey)
+                    : (existing.Host, existingKey);
+            }
         }
 
         var tomb = new Dictionary<Guid, ReferenceDate>();
@@ -52,7 +61,8 @@ public static class SyncEngine
         var allIds = newestHost.Keys.Union(tomb.Keys);
         foreach (var id in allIds)
         {
-            var hasHost = newestHost.TryGetValue(id, out var host);
+            var hasHost = newestHost.TryGetValue(id, out var entry);
+            var host = entry.Host;
             var hasTomb = tomb.TryGetValue(id, out var deletedAt);
             if (hasHost && hasTomb)
             {
