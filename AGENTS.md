@@ -29,6 +29,13 @@ dotnet build WindowsApp/WindowsApp.csproj
 - **The WinUI app cannot be built on Linux.** Test the core.
 - **The fixture** in `Bastion.Core.Tests` is a copy of the sync format owned by `bastion_apple`.
 - **Extra care:** host key verification, sync format and encryption, commands built for remote systems.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:05b03b1b245c67e1f966b43170c89efffcf358f5c624425396d265d173d52751 -->
+
+- SSH compression is disabled for shell, command, and SFTP connections because SSH.NET does not limit expanded packets.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## Review configuration
 

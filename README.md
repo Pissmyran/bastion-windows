@@ -28,6 +28,14 @@ dotnet build WindowsApp/WindowsApp.csproj
 
 The core and its tests target cross-platform .NET and can be tested anywhere. The WinUI app needs Windows.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:d55c9e769c500caeaa8a24a0ea06baa13504c9e76efa825a832669ce9e21409b -->
+
+SSH compression is disabled for shell, command, and SFTP connections. Servers must support uncompressed SSH traffic.
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## Review configuration
 
 CodeRabbit inherits shared defaults from [pissmyran/coderabbit](https://github.com/pissmyran/coderabbit). Repository-specific guidance lives in [.coderabbit.yaml](.coderabbit.yaml). Comment `@coderabbitai configuration` on the pull request to inspect the resolved settings; see [verification steps](docs/operations.md#coderabbit-configuration).
