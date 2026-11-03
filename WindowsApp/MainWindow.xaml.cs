@@ -1154,16 +1154,6 @@ public sealed partial class MainWindow : Window
         public string CurrentPath { get; set; } = ".";
     }
 
-    /// <summary>
-    /// Faktisk absolut sökväg via ett engångskommando (motsvarar Swiftsidans
-    /// <c>SFTPClient.realpath</c>/Rusts samma anrop) — SSH.NETs SftpClient
-    /// saknar en egen realpath-motsvarighet (verifierat mot API:t). SFTP:s
-    /// currentPath och exec-kanalens arbetskatalog delar typiskt startkatalog
-    /// men är INTE garanterat samma sak, samma kommentar som Swift/Rust-sidan.
-    /// </summary>
-    private string ResolveRealPath(FilesTabState state, string relativePath) =>
-        SshSession.RunCommand(state.Host, state.Password, _knownHosts, $"cd {ArchiveOperations.ShellQuote(relativePath)} && pwd").Trim();
-
     private async Task OpenFilesTabAsync(Host host, string? password)
     {
         SftpBrowserSession sftp;
@@ -1540,10 +1530,10 @@ public sealed partial class MainWindow : Window
         try
         {
             var fullDir = JoinedPath(state.CurrentPath, entry.Name);
-            var absoluteDir = await Task.Run(() => ResolveRealPath(state, fullDir));
+            var absoluteDir = await Task.Run(() => state.Sftp.ResolvePath(fullDir));
             var archiveName = $"../{entry.Name}.tar.gz";
             var command = ArchiveOperations.CreateTarGzCommand(new[] { "." }, archiveName, absoluteDir);
-            await Task.Run(() => SshSession.RunCommand(state.Host, state.Password, _knownHosts, command));
+            await Task.Run(() => SshSession.RunCommandChecked(state.Host, state.Password, _knownHosts, ArchiveOperations.ForPosixShell(command)));
         }
         catch (Exception ex)
         {
@@ -1556,11 +1546,11 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var absoluteDir = await Task.Run(() => ResolveRealPath(state, state.CurrentPath));
+            var absoluteDir = await Task.Run(() => state.Sftp.ResolvePath(state.CurrentPath));
             var command = entry.Name.EndsWith(".zip")
                 ? ArchiveOperations.ExtractZipCommand(entry.Name, absoluteDir)
                 : ArchiveOperations.ExtractTarGzCommand(entry.Name, absoluteDir);
-            await Task.Run(() => SshSession.RunCommand(state.Host, state.Password, _knownHosts, command));
+            await Task.Run(() => SshSession.RunCommandChecked(state.Host, state.Password, _knownHosts, ArchiveOperations.ForPosixShell(command)));
         }
         catch (Exception ex)
         {

@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Bastion.Core;
 
 /// <summary>
@@ -12,6 +14,19 @@ public static class ArchiveOperations
 {
     /// <summary>Enkla citattecken runt s, med inbäddade ' eskapade som '\'' — standard POSIX-shell-säkert sätt att citera GODTYCKLIG text.</summary>
     public static string ShellQuote(string s) => $"'{s.Replace("'", "'\\''")}'";
+
+    /// <summary>
+    /// Run a POSIX-quoted archive command with an explicit sh. The login shell
+    /// sees only a fixed command and octal digits, never the path characters.
+    /// printf's %b decodes UTF-8 bytes inside sh before eval parses the command.
+    /// </summary>
+    public static string ForPosixShell(string command)
+    {
+        var encoded = new StringBuilder();
+        foreach (var b in Encoding.UTF8.GetBytes(command))
+            encoded.Append("\\0").Append(Convert.ToString(b, 8).PadLeft(3, '0'));
+        return $"sh -c 'eval \"$(printf %b \"$1\")\"' sh '{encoded}'";
+    }
 
     public static string CreateTarGzCommand(IReadOnlyList<string> paths, string archiveName, string directory)
     {
