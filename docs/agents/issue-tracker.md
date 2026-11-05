@@ -27,7 +27,7 @@ gh api "repos/pissmyran/bastion-windows/issues/$ISSUE"
 Read its comments:
 
 ```bash
-gh api "repos/pissmyran/bastion-windows/issues/$ISSUE/comments"
+gh api --paginate "repos/pissmyran/bastion-windows/issues/$ISSUE/comments"
 ```
 
 List open issues:
