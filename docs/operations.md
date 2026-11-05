@@ -25,7 +25,7 @@ dotnet build WindowsApp/WindowsApp.csproj
 
 ## CodeRabbit configuration
 
-The central source is [pissmyran/coderabbit/.coderabbit.yaml](https://github.com/pissmyran/coderabbit/blob/main/.coderabbit.yaml). The repository's [.coderabbit.yaml](https://github.com/pissmyran/bastion_windows/blob/main/.coderabbit.yaml) uses `inheritance: true` and adds Windows-specific path instructions, explicit governance sources and linked Bastion repositories.
+The central source is [pissmyran/coderabbit/.coderabbit.yaml](https://github.com/pissmyran/coderabbit/blob/main/.coderabbit.yaml). The repository's [.coderabbit.yaml](https://github.com/pissmyran/bastion-windows/blob/main/.coderabbit.yaml) uses `inheritance: true` and adds Windows-specific path instructions, explicit governance sources and linked Bastion repositories.
 
 Before delivery, validate the complete YAML against the [current CodeRabbit schema](https://coderabbit.ai/integrations/schema.v2.json), rejecting duplicate keys. Check schema types and instruction length limits, and confirm every local path pattern matches the intended repository files. Arrays merge by key: local entries replace matching parent entries (for example, the same `path`); unique parent entries remain. Check that the merged configuration retains the shared scanners, advisory checks and disabled paid write features without changing approval settings.
 

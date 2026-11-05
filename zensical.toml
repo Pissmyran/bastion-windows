@@ -1,9 +1,9 @@
 [project]
 site_name = "Bastion for Windows"
-site_url = "https://pissmyran.github.io/bastion_windows/"
+site_url = "https://pissmyran.github.io/bastion-windows/"
 site_description = "The SSH client for Windows, with a .NET core and a WinUI interface."
-repo_url = "https://github.com/pissmyran/bastion_windows"
-repo_name = "pissmyran/bastion_windows"
+repo_url = "https://github.com/pissmyran/bastion-windows"
+repo_name = "pissmyran/bastion-windows"
 edit_uri = "edit/main/docs/"
 docs_dir = "docs"
 site_dir = "site"
