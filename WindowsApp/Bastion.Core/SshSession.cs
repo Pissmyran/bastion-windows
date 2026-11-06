@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Sockets;
 using Renci.SshNet;
 using Renci.SshNet.Common;
@@ -30,6 +31,7 @@ public sealed class SshSession : IDisposable
     private readonly SshClient _client;
     private readonly object _keepAliveGate = new();
     private readonly object _probeGate = new();
+    private int _probeSending;
     private KeepAliveMonitor? _keepAliveMonitor;
     private int _disposed;
 
@@ -149,12 +151,7 @@ public sealed class SshSession : IDisposable
             {
                 await Task.Delay(interval, cancellation.Token).ConfigureAwait(false);
 
-                bool alive;
-                lock (_probeGate)
-                {
-                    if (cancellation.IsCancellationRequested) return;
-                    alive = ProbeLiveness(probeTimeout);
-                }
+                var alive = ProbeLiveness(monitor, probeTimeout);
                 if (cancellation.IsCancellationRequested) return;
 
                 if (alive)
@@ -166,22 +163,20 @@ public sealed class SshSession : IDisposable
                 missed += 1;
                 if (missed < maxMissed) continue;
 
-                // Ägarskapskontroll och teardown måste vara atomiska gentemot
-                // StartKeepAlive/StopKeepAlive. Om låset släpps före Dispose()
-                // kan en ny monitor installeras och sedan stängas av den gamla.
+                // Claim disposal while holding the ownership lock, but never
+                // hold it across network teardown or the deadline callback.
                 lock (_keepAliveGate)
                 {
-                    if (!ReferenceEquals(_keepAliveMonitor, monitor) || cancellation.IsCancellationRequested)
+                    if (!ReferenceEquals(_keepAliveMonitor, monitor) || cancellation.IsCancellationRequested ||
+                        Interlocked.Exchange(ref _disposed, 1) != 0)
                     {
                         return;
                     }
-
-                    // Monitor-låset är reentrant. Dispose -> StopKeepAlive kan
-                    // därför ta samma lås igen, nollställa/cancel:a just denna
-                    // monitor och sätta _disposed innan någon ny StartKeepAlive
-                    // får möjlighet att installera en ersättare.
-                    Dispose();
+                    _keepAliveMonitor = null;
                 }
+
+                cancellation.Cancel();
+                DisposeTransport();
 
                 SessionConnectionLost?.Invoke(this);
                 return;
@@ -209,12 +204,61 @@ public sealed class SshSession : IDisposable
         }
     }
 
-    private bool ProbeLiveness(TimeSpan timeout)
+    private bool ProbeLiveness(KeepAliveMonitor monitor, TimeSpan timeout)
     {
         try
         {
             if (!_client.IsConnected) return false;
-            return SshNetGlobalLivenessProbe.SendAndWaitForReply(_client, timeout);
+            var socket = SshNetGlobalLivenessProbe.GetSocket(_client);
+            var elapsed = Stopwatch.StartNew();
+            var sendGate = new object();
+            var sendFinished = false;
+            using var deadline = new Timer(_ =>
+            {
+                lock (sendGate)
+                {
+                    // A previous monitor may be waiting for a reply, rather than
+                    // blocked sending. Keep its request serialized until it ends.
+                    if (sendFinished || Volatile.Read(ref _probeSending) == 0) return;
+                    lock (_keepAliveGate)
+                    {
+                        if (ReferenceEquals(_keepAliveMonitor, monitor) || Volatile.Read(ref _disposed) != 0)
+                            SshNetGlobalLivenessProbe.Abort(socket);
+                    }
+                }
+            }, null, timeout, Timeout.InfiniteTimeSpan);
+            try
+            {
+                lock (_probeGate)
+                {
+                    if (monitor.Cancellation.IsCancellationRequested) return false;
+                    lock (sendGate)
+                    {
+                        if (elapsed.Elapsed >= timeout) return false;
+                        Volatile.Write(ref _probeSending, 1);
+                    }
+                    try
+                    {
+                        return SshNetGlobalLivenessProbe.SendAndWaitForReply(_client, () =>
+                        {
+                            lock (sendGate)
+                            {
+                                sendFinished = true;
+                                Volatile.Write(ref _probeSending, 0);
+                            }
+                            return timeout - elapsed.Elapsed;
+                        });
+                    }
+                    finally
+                    {
+                        Volatile.Write(ref _probeSending, 0);
+                    }
+                }
+            }
+            finally
+            {
+                lock (sendGate) sendFinished = true;
+            }
         }
         catch (SshException)
         {
@@ -324,6 +368,16 @@ public sealed class SshSession : IDisposable
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
         StopKeepAlive();
+        DisposeTransport();
+    }
+
+    private void DisposeTransport()
+    {
+        // A graceful SSH.NET close can wait behind a blocked transport write.
+        // Abort the underlying socket if teardown has not completed promptly.
+        var socket = SshNetGlobalLivenessProbe.GetSocket(_client);
+        using var deadline = new Timer(_ => SshNetGlobalLivenessProbe.Abort(socket), null,
+            TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
         try
         {
             Shell.Dispose();

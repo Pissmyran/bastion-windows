@@ -16,9 +16,11 @@ internal sealed class BlackholeTcpProxy : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly TaskCompletionSource<bool> _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource<bool> _droppedClientTraffic = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> _clientReadsPaused = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private TcpClient? _clientSide;
     private TcpClient? _serverSide;
     private int _blackholed;
+    private int _pauseClientReads;
     private int _disposed;
 
     private BlackholeTcpProxy(int targetPort)
@@ -47,6 +49,14 @@ internal sealed class BlackholeTcpProxy : IDisposable
     /// </summary>
     public bool WaitForDroppedClientTraffic(TimeSpan timeout) =>
         _droppedClientTraffic.Task.Wait(timeout);
+
+    public void PauseClientReads()
+    {
+        _ready.Task.GetAwaiter().GetResult();
+        Volatile.Write(ref _pauseClientReads, 1);
+    }
+
+    public bool WaitForPausedClientReads(TimeSpan timeout) => _clientReadsPaused.Task.Wait(timeout);
 
     private async Task AcceptAndForwardAsync()
     {
@@ -98,6 +108,12 @@ internal sealed class BlackholeTcpProxy : IDisposable
         {
             var read = await input.ReadAsync(buffer, cancellationToken);
             if (read == 0) return;
+
+            if (clientToServer && Volatile.Read(ref _pauseClientReads) != 0)
+            {
+                _clientReadsPaused.TrySetResult(true);
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
 
             if (Volatile.Read(ref _blackholed) != 0)
             {

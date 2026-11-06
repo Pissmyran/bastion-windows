@@ -487,7 +487,7 @@ public sealed partial class MainWindow : Window
     {
         if (!ReferenceEquals(tab.Tag, session)) return;
         tab.Tag = null;
-        session.Dispose();
+        _ = Task.Run(session.Dispose);
         tab.Content = new TextBlock { Text = "Sessionen avslutades.", Margin = new Thickness(16), Opacity = 0.7 };
     }
 
@@ -495,8 +495,11 @@ public sealed partial class MainWindow : Window
     {
         if (args.Tab.Tag is IDisposable disposable)
         {
-            disposable.Dispose();
             args.Tab.Tag = null;
+            if (disposable is SshSession session)
+                _ = Task.Run(session.Dispose);
+            else
+                disposable.Dispose();
         }
         sender.TabItems.Remove(args.Tab);
         UpdateSessionAreaVisibility();
