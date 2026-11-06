@@ -124,7 +124,7 @@ reviews:
         failure paths. Keep tests runnable without WinUI.
         For SSH integration tests, inspect server and proxy cleanup,
         bounded waits and isolation between tests.
-        The sync fixture is a copy of the format owned by bastion_apple.
+        The sync fixture is a copy of the format owned by bastion-apple.
         Require an upstream format basis for fixture changes; do not
         regenerate expected data merely to make an assertion pass.
 
@@ -142,18 +142,18 @@ knowledge_base:
         Shared Bastion documentation and cross-platform coordination.
         Check relevant shared behavior and documentation changes.
 
-    - repository: pissmyran/bastion_apple
+    - repository: pissmyran/bastion-apple
       instructions: |
         Owns the shared sync format and upstream fixtures.
         Compare relevant model, serialization and encryption changes.
         Windows fixtures are copies, not the format authority.
 
-    - repository: pissmyran/bastion_linux
+    - repository: pissmyran/bastion-linux
       instructions: |
         Compare shared sync, encryption and SSH behavior when relevant.
         Do not require identical platform feature support.
 
-    - repository: pissmyran/bastion_android
+    - repository: pissmyran/bastion-android
       instructions: |
         Compare shared sync and encryption compatibility when relevant.
         Do not require identical platform feature support.

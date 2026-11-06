@@ -1,8 +1,8 @@
 # Bastion for Windows
 
-**Documentation:** [pissmyran.github.io/bastion_windows](https://pissmyran.github.io/bastion_windows/)
+**Documentation:** [pissmyran.github.io/bastion-windows](https://pissmyran.github.io/bastion-windows/)
 
-Bastion is an SSH client. This repo holds the version for Windows with WinUI, built with C#, .NET, WinUI and SSH.NET. The other platforms have their own repos: [Bastion for Apple](https://github.com/pissmyran/bastion_apple), [Bastion for Linux](https://github.com/pissmyran/bastion_linux), [Bastion for Android](https://github.com/pissmyran/bastion_android). The [Bastion hub](https://github.com/pissmyran/bastion) ties them together.
+Bastion is an SSH client. This repo holds the version for Windows with WinUI, built with C#, .NET, WinUI and SSH.NET. The other platforms have their own repos: [Bastion for Apple](https://github.com/pissmyran/bastion-apple), [Bastion for Linux](https://github.com/pissmyran/bastion-linux), [Bastion for Android](https://github.com/pissmyran/bastion-android). The [Bastion hub](https://github.com/pissmyran/bastion) ties them together.
 
 ## Contents
 
@@ -34,6 +34,6 @@ CodeRabbit inherits shared defaults from [pissmyran/coderabbit](https://github.c
 
 ## More
 
-- [The documentation](https://pissmyran.github.io/bastion_windows/): getting started, architecture, operations, sync format and releases
+- [The documentation](https://pissmyran.github.io/bastion-windows/): getting started, architecture, operations, sync format and releases
 - [SECURITY.md](SECURITY.md): report a vulnerability
 - [CONTRIBUTING.md](CONTRIBUTING.md): contribute

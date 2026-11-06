@@ -1,35 +1,27 @@
-# AGENTS.md – bastion_windows
+# AGENTS.md
 
-Bastion for Windows: the SSH client for Windows with WinUI, built with C#, .NET, WinUI and SSH.NET.
+Scope
+- Work only in this repo. Never read, change or open PRs against other repos.
+- Do exactly what is asked. No extra files, lines, steps or config.
+- Repo-specific rules: see REPO.md.
 
-Read the shared rules at the start of every session: [GOVERNANCE.md](https://raw.githubusercontent.com/pissmyran/.github/main/GOVERNANCE.md) and [BASTION.md](https://raw.githubusercontent.com/pissmyran/.github/main/BASTION.md).
+Workflow
+- Never change workflows. Only Renovate and Dependabot may.
+- Never work around rulesets, checks or branch rules.
+- Ask before deviating from a tool's standard setup.
 
-## Read first
+Git and review
+- Squash merge, signed commits, auto-merge on.
+- A review conversation is resolved only after the comment is read in full and the flagged code is analyzed and fixed.
+- Nothing personal in code or docs. Generic placeholders only.
 
-1. [docs/architecture.md](docs/architecture.md): components and security boundaries.
-2. [docs/operations.md](docs/operations.md): verification before pushing.
-3. [docs/sync-format.md](docs/sync-format.md): when the host list or sync is involved.
+Reporting and context
+- Report only the result, and only when done or blocked. No progress updates, no recaps.
+- Never poll. Never subscribe to PR, CI or repository activity. Never read GitHub notifications.
+- React only to warnings, errors and security alerts. Ignore routine confirmations such as bot comments and merge or subscription notices.
+- Load only the tools, files and history the current task needs.
 
-## Commands
-
-Test the core (works on Linux, macOS and Windows):
-
-```bash
-dotnet test WindowsApp/Bastion.Core.Tests
-```
-
-Build the app (Windows only):
-
-```bash
-dotnet build WindowsApp/WindowsApp.csproj
-```
-
-## Rules
-
-- **The WinUI app cannot be built on Linux.** Test the core.
-- **The fixture** in `Bastion.Core.Tests` is a copy of the sync format owned by `bastion_apple`.
-- **Extra care:** host key verification, sync format and encryption, commands built for remote systems.
-
-## Review configuration
-
-CodeRabbit inherits [pissmyran/coderabbit/.coderabbit.yaml](https://github.com/pissmyran/coderabbit/blob/main/.coderabbit.yaml); [.coderabbit.yaml](.coderabbit.yaml) adds Windows-specific review guidance and cross-platform context. Read the matching path instructions before changing those files. Use `@coderabbitai configuration` on the pull request and follow [docs/operations.md](docs/operations.md#coderabbit-configuration) to verify the resolved settings and source access.
+Language
+- Code, commits, PRs, labels: English.
+- Documentation: English first, Swedish copy in /sv.
+- Talk to the owner in Swedish.
