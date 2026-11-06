@@ -1,10 +1,10 @@
 # Sync format
 
-Bastion for Windows reads and writes the same sync format as the other platforms. The **source** of the format is the Swift models in [Bastion for Apple](https://github.com/pissmyran/bastion_apple).
+Bastion for Windows reads and writes the same sync format as the other platforms. The **source** of the format is the Swift models in [Bastion for Apple](https://github.com/pissmyran/bastion-apple).
 
 ## The fixture
 
-`WindowsApp/Bastion.Core.Tests/csharp-hosts-fixture.json` is a copy of the host format from [Bastion for Apple](https://github.com/pissmyran/bastion_apple/tree/main/Tests/fixtures). `HostStoreTests` reads it and shows that the C# side can decode Swift's format.
+`WindowsApp/Bastion.Core.Tests/csharp-hosts-fixture.json` is a copy of the host format from [Bastion for Apple](https://github.com/pissmyran/bastion-apple/tree/main/Tests/fixtures). `HostStoreTests` reads it and shows that the C# side can decode Swift's format.
 
 ## When the format changes in Bastion for Apple
 

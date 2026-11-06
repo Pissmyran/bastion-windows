@@ -1,6 +1,6 @@
 # Issues
 
-GitHub Issues in `pissmyran/bastion_windows` is the repo's issue tracker.
+GitHub Issues in `pissmyran/bastion-windows` is the repo's issue tracker.
 
 ## Working with issues
 
@@ -12,8 +12,44 @@ GitHub Issues in `pissmyran/bastion_windows` is the repo's issue tracker.
 
 `gh issue` does not work in cloud sessions (GraphQL is disabled). Use REST:
 
-- Read: `gh api repos/pissmyran/bastion_windows/issues/<n>` and `…/issues/<n>/comments`
-- List open: `gh api 'repos/pissmyran/bastion_windows/issues?state=open'`
-- Create: `gh api repos/pissmyran/bastion_windows/issues -f title='…' -f body='…'`
-- Comment: `gh api repos/pissmyran/bastion_windows/issues/<n>/comments -f body='…'`
-- Close: `gh api -X PATCH repos/pissmyran/bastion_windows/issues/<n> -f state=closed`
+Set the issue number once, replacing `1` with the real number:
+
+```bash
+ISSUE=1
+```
+
+Read the issue:
+
+```bash
+gh api "repos/pissmyran/bastion-windows/issues/$ISSUE"
+```
+
+Read its comments:
+
+```bash
+gh api --paginate "repos/pissmyran/bastion-windows/issues/$ISSUE/comments"
+```
+
+List open issues:
+
+```bash
+gh api 'repos/pissmyran/bastion-windows/issues?state=open'
+```
+
+Create an issue, replacing `TITLE` and `BODY`:
+
+```bash
+gh api repos/pissmyran/bastion-windows/issues -f title='TITLE' -f body='BODY'
+```
+
+Comment on an issue, replacing `BODY`:
+
+```bash
+gh api "repos/pissmyran/bastion-windows/issues/$ISSUE/comments" -f body='BODY'
+```
+
+Close an issue:
+
+```bash
+gh api -X PATCH "repos/pissmyran/bastion-windows/issues/$ISSUE" -f state=closed
+```
