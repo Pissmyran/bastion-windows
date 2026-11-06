@@ -38,6 +38,10 @@ jobs:
   deploy:
     name: Zensical Pages
     runs-on: ubuntu-latest
+    # One deployment at a time, so the newest-release check below runs right before publishing.
+    concurrency:
+      group: zensical-pages-deploy
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -71,6 +75,29 @@ jobs:
         with:
           path: ${{ inputs.site_dir }}
 
+      - name: Check that the tag is still the newest stable release
+        id: newest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          case "${PUBLISH_REF}" in
+            refs/tags/*) ;;
+            *)
+              echo "current=true" >> "${GITHUB_OUTPUT}"
+              exit 0
+              ;;
+          esac
+          latest="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+          if [[ "refs/tags/${latest}" == "${PUBLISH_REF}" ]]; then
+            echo "current=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "current=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::${PUBLISH_REF#refs/tags/} is not the newest stable release (${latest}); skipping deployment."
+          fi
+
       - name: Deploy Pages
         id: deployment
+        if: ${{ steps.newest.outputs.current == 'true' }}
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
